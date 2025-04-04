@@ -1,0 +1,23 @@
+*+--------------------------------------------------------------------+    1
+*¦       (C)                                                          ¦    2
+*+--------------------------------------------------------------------+    3
+*¦ FUNCTION:                                                          ¦    4
+*¦   CLIENT RTN TO INVOKE PC RTN WITH ARR                             ¦    5
+*¦ INPUTS:                                                            ¦    6
+*¦   NONE                                                             ¦    7
+*¦ OUTPUTS:                                                           ¦    8
+*¦   R15 - RETURN CODE                                                ¦    9
+*¦          0 - PROGRAM HAS COMPLETED NORMALLY                        ¦   10
+*¦          8 - ESTAEX ROUTINE HAS BEEN ENTERED AND RECOVERED         ¦   11
+*¦         12 - LOAD FAILED FOR ESTAEX ROUTINE                        ¦   12
+*¦ PROGRAM LOGIC:                                                     ¦   13
+*¦   1) BUILD THE PARMLIST FOR THE CARR PUT IN MODFIABLE AREA         ¦   15
+*¦   3) IF THE MODULE EXECUTES IN SUPERVISOR STATE, PUT THE MODULE    ¦   16
+*¦      NAME AND ENTRY POINT IN THE PARMLIST.  (IN SUPERVISOR STATE,  ¦   17
+*¦      RTM2 DOES NOT SUPPLY THEM IN THE SDWA.                        ¦   18
+*¦   4) ISSUE THE ESTAEX MACRO TO ESTABLISH THE RECOVERY ROUTINE.     ¦   19
+*¦   5) EXECUTE REMAINING INSTRUCTIONS; AN ERROR WILL CAUSE THE       ¦   20
+*¦      ESTAEX ROUTINE TO RECOVER TO THE RECOVERY ADDRESS             ¦   21
+*¦ ATTRIBUTES:                                                        ¦   22
+*¦   REENTRANT, AMODE 31, RMODE ANY                                   ¦   23
+*+--------------------------------------------------------------------+   24

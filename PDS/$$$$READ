@@ -1,0 +1,19 @@
+Editor's note:  (April 2024)
+
+The main code modules in this package were extensively modified by
+Joe Reichman.  In the early 1990's when (the late) Mitchell Marx wrote
+the original code, 64-bit registers were not available, and the code
+as it originally was, did not hunt down the registers in the true
+abending program, when that program was different from the program
+which was ostensibly running.  Many times when you get an abend, the
+symptom dump says that the moduie is unknown.  Joe's new code now
+traces this down, in most cases, and discovers where the true abend
+really took place.  This new information is both helpful and
+eye-opening.
+
+ALL REFERENCES FOR SUPPORT BY MITCHELL MARX, PENELOPE DAVIS, AND
+MD-PALADIN ARE (UNFORTUNATELY) NOW OBSOLETE.  FOR SUPPORT, KINDLY
+EMAIL JOE REICHMAN.
+
+      email:  Joseph Reichman <reichmanjoe@gmail.com>
+

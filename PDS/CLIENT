@@ -1,0 +1,122 @@
+*+--------------------------------------------------------------------+    1
+*¦       (C)                                                          ¦    2
+*+--------------------------------------------------------------------+    3
+*¦ FUNCTION:                                                          ¦    4
+*¦   ILLUSTRATE CLEINT ESTABLISH LINAKGE AND PC PC RTN                ¦    5
+*¦ ATTRIBUTES:                                                        ¦   22
+*¦   REENTRANT, AMODE 31, RMODE ANY                                   ¦   23
+*+--------------------------------------------------------------------+   24
+*        *---------------------------------------*                        39
+*        *     CLIENT CALLS CARR PC RTN          *                        40
+*        *---------------------------------------*                        43
+         MODULE CLIENT,BASE=12,LOC=BELOW,AMODE=31,RMODE=ANY,       JOERX  25
+               TEXT=' CLIENT SIDE FOR PC RTN'                      JOER   26
+         MODESET KEY=ZERO,MODE=SUP
+         LTR   R15,R15
+         BZ    OK
+         WTO   'ERROR MODESET'
+         B     ENDMOD
+OK       DS    0H
+         WTO   'MODESET OK'
+         LA     R11,DIEAREA
+         USING  DBGRPY,R11
+*        DBGRDIE LINKAGE=SVC
+         L     R15,CVTPTR
+         L     R15,X'220'(R15,0)
+         L     R15,X'14'(R15,0)
+         L     R15,X'8'(R15,0)
+         LA    R1,LEVEL
+         ST    R1,PARMS
+         LA    R1,NAME
+         ST    R1,PARMS+4
+         LA    R1,USER_TOKEN
+         ST    R1,PARMS+8
+         LA    R1,RETCODE
+         ST    R1,PARMS+12
+         LA    R1,PARMS
+         BASR  R14,R15
+         LTR   R15,R15
+         BZ    ATSET
+         WTO   'ERROR NAME TOKEN PAIR'
+         B     ENDMOD
+*
+ATSET    DS   0H
+         ATSET AX=AXVALUE,PT=YES,SSAR=YES
+         LTR   R15,R15
+         BZ    SETETCON
+         WTO   'ERROR ATSET'
+         B     ENDMOD
+*
+SETETCON DS    0H
+         WTO   'ATSET GOOD'
+         MVC   TKLIST(4),=F'1'
+         MVC   TKLIST+4(4),TOKEN
+*
+         MVC   ELXLIST(4),=F'1'
+         MVC   ELXLIST+4(8),LXVALUE
+         ETCON TKLIST=TKLIST,ELXLIST=ELXLIST
+         LTR   R15,R15
+         BZ    DOPC
+         WTO   'ERROR ETCON...'
+         B     ENDMOD
+*
+DOPC     DS    0H
+         WTO   'BEFORE PC RTN'
+         LOAD  EP=GRECOV              LOAD THE ESTAEX ROUTINE             30
+         LR    R3,R0                 ADDRESS OF ESTAEX ROUTINE TO R3      31
+*        *---------------------------------------*                        32
+*        *     BUILD PARMLIST FOR ESTAEX ROUTINE *                        33
+*        *---------------------------------------*                        34
+         LAE   R4,ESTPARAM           ADDRESS OF PARMS FOR ESTAE RTN       35
+         USING ESTPARM,R4            MAP ESTAE PARMLIST                   36
+         LAE   R15,RETRY             RETRY ADDRESS                        37
+         ST    R15,ESTRETRY          SAVE IN PARMS FOR ESTAE ROUTINE      38
+*        *---------------------------------------*                        39
+*        *     UNCOMMENT THE FOLLOWING 2 LINES   *                        40
+*        *     IF THIS MODULE EXECUTES IN        *                        41
+*        *     SUPERVISOR STATE.                 *                        42
+*        *---------------------------------------*                        43
+         ST    R12,ESTLOAD             ENTRY POINT TO ESTAE PARMLIST      44
+         MVC   ESTMOD(8),=CL8'CESTAE'  MODULE NAME TO ESTAE PARMLIST      45
+*        *---------------------------------------*                        46
+*        *     ISSUE THE ESTAEX MACRO            *                        47
+*        *---------------------------------------*                        48
+         ESTAEX (R3),PARAM=(R4),MF=(E,ESTAELST)                           49
+         L     R14,LXVALUE+4
+         LMH   R15,R15,LXVALUE
+*
+         PC   0(R14)
+*
+RETRY    DS    0H
+ENDMOD   DS   0H
+         ENDMOD
+         COPY DBGRLIT
+CVTADDR  DC    A(CVTPTR)
+NAME     DC    CL16'FILE 192'
+LEVEL    DC    A(IEANT_SYSTEM_LEVEL)
+SYSP     DC    A(1)
+         CVT LIST=YES,DSECT=YES
+         IEANTASM
+WCLIENT  DSECT
+         DS    18F
+PARMS    DS    5F
+ESTAELST ESTAEX ,MF=L                  ESTAEX PARAMETER LIST              92
+ESTPARAM DS    0F,CL(LESTPARM)         PARMLIST FOR ESTAEX ROUTINE        93
+*CESTAE  EQU   *-WCESTAE                                                  94
+DIEAREA     DS   CL(DIE_LEN)
+TKLIST   DS   0F
+         DS   XL4
+         DS   XL4
+ELXLIST  DS   0F
+         DS   XL4
+         DS   XL8
+USER_TOKEN DS  0XL16
+AXVALUE   DS   XL2
+LXVALUE   DS   XL8
+TOKEN    DS    XL4
+         DS    XL2
+RETCODE  DS    F
+LCLIENT  EQU   *-WCLIENT
+         DBGRPY
+         ESTPARM                       MAP PARMLIST FOR EXTAEX ROUTINE    98
+         END

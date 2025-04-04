@@ -1,0 +1,91 @@
+         MACRO
+         LSED
+.**********************************************************************
+.*                                                                    *
+.** LSEDSECT - Linkage Stack Entry DSECT(s)                           *
+.*                                                                    *
+.*    This dsect is used to define the linkage stack entries.         *
+.*                                                                    *
+.**********************************************************************
+LSED     DSECT ,                        Linkage Stack Entry Descripter
+*
+LSENGRGS DS    0XL128                   GP Registers in Stack 64-bit
+LSENGR0  DS    D                        ..General Register R0
+LSENGR1  DS    D                        ..General Register R1
+LSENGR2  DS    D                        ..General Register R2
+LSENGR3  DS    D                        ..General Register R3
+LSENGR4  DS    D                        ..General Register R4
+LSENGR5  DS    D                        ..General Register R5
+LSENGR6  DS    D                        ..General Register R6
+LSENGR7  DS    D                        ..General Register R7
+LSENGR8  DS    D                        ..General Register R8
+LSENGR9  DS    D                        ..General Register R9
+LSENGR10 DS    D                        ..General Register R10
+LSENGR11 DS    D                        ..General Register R11
+LSENGR12 DS    D                        ..General Register R12
+LSENGR13 DS    D                        ..General Register R13
+LSENGR14 DS    D                        ..General Register R14
+LSENGR15 DS    D                        ..General Register R15
+*
+LSENSTAT DS    0D                       Other Status Information
+LSENPKM  DS    Y                        ..PSW KEY MASK Keys in CR3
+LSENSASN DS    Y                        ..Secondary ASN in CR3
+LSENEAX  DS    Y                        ..Extended Authorization Ndx
+LSENPASN DS    Y                        ..Primary ASN in CR4
+LSENPSW1 DS    D                        ..Extended PSW Bits 0-63
+LSENBRAD DS    D                        ..Branch Address if 64-bit
+         ORG   LSENBRAD
+LSENSPID DS    F                        ....Called Space ID 64-bit PC
+LSENPCNB DS    F                        ....PC Number idf PC Entry PC
+*                                       ....Branch Address if BAKR
+LSEN31BT EQU   X'80'                    ....31-Bit Mode Indicator
+LSENMODA DS    0D                       ..Modifiable Area
+LSENMOD1 DS    A                        ..Modifiable Area - Word1
+LSENMOD2 DS    A                        ..Modifiable Area - Word2
+         DS    D                        ..(Reserved)
+LSENPSW2 DS    D                        ..Extended PSW Bits 64-127
+LSENSAST DS    F                        ..Secondary ASTEIN
+LSENPAST DS    F                        ..Primary   ASTEIN
+         DS    5D                       ..(Reserved)
+*
+LSENARGS DS    0XL64                    AR Registers in Stack 32-bit
+LSENAR0  DS    F                        ..Access Register R0
+LSENAR1  DS    F                        ..Access Register R1
+LSENAR2  DS    F                        ..Access Register R2
+LSENAR3  DS    F                        ..Access Register R3
+LSENAR4  DS    F                        ..Access Register R4
+LSENAR5  DS    F                        ..Access Register R5
+LSENAR6  DS    F                        ..Access Register R6
+LSENAR7  DS    F                        ..Access Register R7
+LSENAR8  DS    F                        ..Access Register R8
+LSENAR9  DS    F                        ..Access Register R9
+LSENAR10 DS    F                        ..Access Register R10
+LSENAR11 DS    F                        ..Access Register R11
+LSENAR12 DS    F                        ..Access Register R12
+LSENAR13 DS    F                        ..Access Register R13
+LSENAR14 DS    F                        ..Access Register R14
+LSENAR15 DS    F                        ..Access Register R15
+*
+TOPOFRAM EQU   *-LSED
+*
+ENTRY    EQU   *
+LSEDTYPE DS    B                        Type of Stack Entry
+LSEDTUSB EQU   X'80'                    ..Unstack Supression Bit
+LSEDTHDR EQU   B'0001001'               ..Header Entry
+LSEDTTRL EQU   B'0001010'               ..Trailer Entry
+LSEDTBKR EQU   B'0001100'               ..BAKR Entry
+LSEDTPCE EQU   B'0001101'               ..PC Entry
+LSEDSI   DS    X                        Section Identification
+LSEDRFS  DS    H                        Remaining Free Space
+LSEDNES  DS    H                        Next Entry Size
+LSEDRES  DS    H                        (Reserved)
+*
+ENTRYLEN EQU   *-ENTRY
+LSENLNTH EQU   *-LSED                   Length of Entry
+LSHD     DSECT ,                        Linkage Stack Header Entry
+         DS    3F                       (Reeserved)
+LSHDPREV DS    A                        Previous Page
+LSHDLNTH EQU   *-LSHD                   Length of Header Entry
+.*
+.MEND    ANOP
+         MEND  ,

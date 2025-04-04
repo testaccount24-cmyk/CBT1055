@@ -1,0 +1,48 @@
+TESTPRGP CSECT
+TESTPRGP AMODE 64
+TESTPRGP RMODE 64
+         YREGS
+         STMG  R14,R12,24(R13)
+         LARL  R3,TESTPRGP
+         USING TESTPRGP,R3
+         XGR   R15,R15
+         SYSSTATE RMODE64=YES
+         LA    R0,WS_LEN1
+         STORAGE OBTAIN,LENGTH=(0),ADDR=(R5),SP=0
+         LGR   R14,R13
+         LGR   R13,R5
+         USING WS_DSECT,R13
+         STG   R14,8(,R13)
+*        OPEN  (ISPFLOAD,INPUT)
+*        LOAD  EP=DBGRESTA
+*        LR    R7,R0
+*        L     R7,=A(DBGRESTA)
+*        ESTAE (R7)
+*        ST    R0,PARM_ADDR
+*        LR    R7,R0
+*        LINK  EP=DBGRTEST,PARAM=PARM_ADDR,MF=(E,PARAMS)
+*        LR    R8,R9
+*        LR    R10,R11
+*        SAM64
+         DC    H'0'
+         LA    R0,WS_LEN1
+         STORAGE OBTAIN,LENGTH=(0),ADDR=(R5),SP=0
+         LG    R13,8(R13)
+         LMG   R14,R12,24(R13)
+         BR    R14
+BLDLIST  DS    0H
+FF       DS    AL2
+LL       DS    AL2
+         DC    C'ISPF'
+TT       DS    XL2
+R        DS    X
+K        DS    X
+Z        DS    X
+C        DS    X
+ISPFLOAD DCB   DDNAME=ISPFLOAD,DSORG=PO,RECFM=U,MACRF=R
+WS_DSECT DSECT
+         DS   18F
+PARM_ADDR DS   A
+PARAMS   DS    4F
+WS_LEN1  EQU  *-WS_DSECT
+         END

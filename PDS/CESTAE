@@ -1,0 +1,343 @@
+*+--------------------------------------------------------------------+    1
+*¦       (C)   COPYRIGHT MD-PALADIN INC. 1992                         ¦    2
+*+--------------------------------------------------------------------+    3
+*¦ FUNCMION:                                                          ¦    4
+*¦   ILLUSTRATE HOW TO ESTABLISH AN ESTAEX RECOVERY ROUTINE           ¦    5
+*¦ INPUTS:                                                            ¦    6
+*¦   NONE                                                             ¦    7
+*¦ OUTPUTS:                                                           ¦    8
+*¦   R15 - RETURN CODE                                                ¦    9
+*¦          0 - PROGRAM HAS COMPLETED NORMALLY                        ¦   10
+*¦          8 - ESTAEX ROUTINE HAS BEEN ENTERED AND RECOVERED         ¦   11
+*¦         12 - LOAD FAILED FOR ESTAEX ROUTINE                        ¦   12
+*¦ PROGRAM LOGIC:                                                     ¦   13
+*¦   1) LOAD THE ESTAE ROUTINE.                                       ¦   14
+*¦   2) BUILD THE PARMLIST FOR THE ESTAEX ROUTINE.                    ¦   15
+*¦   3) IF THE MODULE EXECUTES IN SUPERVISOR STATE, PUT THE MODULE    ¦   16
+*¦      NAME AND ENTRY POINT IN THE PARMLIST.  (IN SUPERVISOR STATE,  ¦   17
+*¦      RTM2 DOES NOT SUPPLY THEM IN THE SDWA.                        ¦   18
+*¦   4) ISSUE THE ESTAEX MACRO TO ESTABLISH THE RECOVERY ROUTINE.     ¦   19
+*¦   5) EXECUTE REMAINING INSTRUCTIONS; AN ERROR WILL CAUSE THE       ¦   20
+*¦      ESTAEX ROUTINE TO RECOVER TO THE RECOVERY ADDRESS             ¦   21
+*¦ ATTRIBUTES:                                                        ¦   22
+*¦   REENTRANT, AMODE 31, RMODE ANY                                   ¦   23
+*+--------------------------------------------------------------------+   24
+         MODULE CESTAE,BASE=12,LOC=BELOW,AMODE=31,RMODE=ANY,           X  25
+               TEXT=' ESTABLISH AN ESTAEX ROUTINE'                        26
+         XC    WAIT,WAIT
+*        *---------------------------------------*                        27
+*        *     LOAD THE ESTAE ROUTINE            *                        28
+*        *---------------------------------------*                        29
+         LOAD   EP=IRBRET
+         LR     R5,R0
+         N      R5,=X'7FFFFFFF'
+         ST     R5,RETADD
+         XC     WAIT,WAIT
+*        USING   DBGRPY,R9
+*        LA      R9,DBGRP
+*        SAM64
+*        DBGRDIE LINKAGE=SVC,LEN=784
+         WTO   'BEFOE LOAD OF GRECOV..'
+         LOAD  EP=GRECOV              LOAD THE ESTAEX ROUTINE             30
+         LR    R3,R0                 ADDRESS OF ESTAEX ROUTINE TO R3      31
+*        *---------------------------------------*                        32
+*        *     BUILD PARMLIST FOR ESTAEX ROUTINE *                        33
+*        *---------------------------------------*                        34
+         LAE   R4,ESTPARAM           ADDRESS OF PARMS FOR ESTAE RTN       35
+         USING ESTPARM,R4            MAP ESTAE PARMLIST                   36
+         MVI   ESTPARM,X'40'
+         MVC   ESTPARM+1(LESTPARM-1),ESTPARM
+         LAE   R15,RETRY             RETRY ADDRESS                        37
+*        LA    R15,RESTIME           RETRY ADDRESS                        37
+         ST    R15,ESTRETRY          SAVE IN PARMS FOR ESTAE ROUTINE      38
+*        MVC   ESTRETRY,RETADD   SAVE IN PARMS FOR ESTAE ROUTINE          38
+*        *---------------------------------------*                        39
+*        *     UNCOMMENT THE FOLLOWING 2 LINES   *                        40
+*        *     IF THIS MODULE EXECUTES IN        *                        41
+*        *     SUPERVISOR STATE.                 *                        42
+*        *---------------------------------------*                        43
+         ST    R12,ESTLOAD             ENTRY POINT TO ESTAE PARMLIST      44
+         MVC   ESTMOD(8),=CL8'CESTAE'  MODULE NAME TO ESTAE PARMLIST      45
+*        *---------------------------------------*                        46
+*        *     ISSUE THE ESTAEX MACRO            *                        47
+*        *---------------------------------------*                        48
+         ESTAEX (R3),PARAM=(R4),MF=(E,ESTAELST)                           49
+         LTR   R15,R15
+         BZ    ESTAE_OK
+         WTO   'ESTAE NO GOOD'
+*        B     CONT
+*        SETFRR A,FRRAD=(R3),PARMAD=(R4),EUT=YES,WRKREGS=(R8,R9)          49
+ESTAE_OK DS     0H
+         WTO   'AFTER ESTAE  '
+CONT     DS     0H
+*        *---------------------------------------*                        50
+*        *     THE FOLLOWING 4 INSTRUCTIONS      *                        51
+*        *     REPRESENTS THE REST OF THE        *                        52
+*        *     PROCESSING IN THIS MODULE.        *                        53
+*        *     AN ERROR WILL CAUSE RTM TO INVOKE *                        54
+*        *     THE ESTAEX ROUTINE.               *                        55
+*        *---------------------------------------*                        56
+*        SAM64
+*        B     ISGERR
+*        B     BADSTOR
+         DC    H'0'
+*        B     SYNCERR
+*        B     STIMER
+*        B     IRBERR
+*        B     SVCER
+STIMER   DS    0H
+         XR    R7,R7
+         LA    R7,STIMERR
+         WTO   'BEFORE STIMERR '
+         STCM   R13,B'1111',TIMEPARM
+         LA    R6,STIMD
+         STIMERM SET,ID=(R6),DINTVL=FIVEMIN,EXIT=STIMERR,PARM=TIMEPARM,X
+               MF=(E,STIMERL)
+         WTO   'AFTER  STIMERR '
+TIMEERR DS     0H
+         WAIT ECB=ECB
+         STIMER TASK,DINTVL=FIVEMIN1
+         B    EXIT
+SVRB     DC   X'C0'
+FIVEMINX DC   C'00000000'
+FIVEMIN  DC   C'00000001'
+FIVEMIN1 DC   C'00001000'
+STIMERR  DS    0H
+         STM   R14,R12,12(R13)
+         LLGTR R10,R15
+         LLGTR R6,R14
+         L     R13,4(R1)
+         WTO   'IN STIMER EXIT'
+         DROP  R12
+         USING STIMERR,R10
+*        USING   DBGRPY,R9
+*        LA      R9,DBGRP
+*        DBGRDIE LINKAGE=SVC,LEN=4
+         LR    R12,R11
+         DC    H'0'
+RESTIME  DS     0H
+         LA      R7,DBGRP
+*        DBGRDIE LINKAGE=SVC,LEN=10
+         LLGTR R13,R6
+*        LM    R14,R12,12(R13)
+         LLGTR R14,R6
+         BR    R14
+SAVE2    DS    16F
+         DROP  R10
+         USING CESTAE,R12    OP
+ISGERR  DS     0H
+        ISGENQ REQUEST=OBTAIN,QNAME=QNAM1,RNAME=RNAM1,RNAMELEN=RLEN1,  X
+               SCOPE=SYSTEMS,CONTROL=EXCLUSIVE,ENQTOKEN=ENQT1,MF=(E,ISGX
+               LST)
+        ISGENQ REQUEST=OBTAIN,QNAME=QNAM1,RNAME=RNAM1,RNAMELEN=RLEN1,  X
+               SCOPE=SYSTEMS,CONTROL=EXCLUSIVE,ENQTOKEN=ENQT1,MF=(E,ISGX
+               LST)
+
+         L     R3,=F'-1'
+         LA    R4,EXIT00
+         MVC   INST,=X'000000007FFFF000'
+BADSTOR  DS    0H
+         L     R0,=F'16000000'
+         STORAGE OBTAIN,COND=NO,LOC=24,LINKAGE=SYSTEM,LENGTH=(0),SP=0
+SYNCERR  DS    0H
+         USING   DBGRPY,R9
+*        LA      R9,DBGRP
+*        DBGRDIE LEN=44
+         LOAD  EP=TESTPRGP
+         N     R0,=X'FFFFFFFE'
+         LGR   R8,R0
+         SYNCHX (R8),RESTORE=YES,KEYADDR=SUP,AMODE=64,RMODE64=YES,STATEX
+               =SUPV,MF=(E,SYNCHL)
+         SAM64
+         BASR  R14,R15
+         SAM31
+         LAM   R1,R1,=A(X'00000001')        ..LOAD ACCESS REGS TO SHOW    57
+         LAM   R2,R2,=A(X'00000002')        ..HOW ESTAEX RTN DISPLAYS     58
+         L     R1,=X'0000123E'              INVALID ADDRESS
+SVCER    DS    0H                       PROGRAM CHECK S0C1                59
+         LLILF 15,X'7FFFF000'
+         SVC 42
+         B     EXIT00                                                     60
+*        *---------------------------------------*                        61
+*        *     THE ESTAEX ROUTINE RECOVERS HERE  *                        62
+*        *---------------------------------------*                        63
+RETRY    DS    0H                                                         64
+         USING   DBGRPY,R9
+*        LA      R9,DBGRP
+*        DBGRDIE LINKAGE=SVC,LEN=6E
+*        WTO   'AT RECOVERY POINT IN CALLER'                              65
+*======> ADD EXECUTABLE CODE HERE <====================================   66
+         B     EXIT08                                                     67
+*---------------------------------------------------------------------*   68
+*        EXIT ROUTINES                                                *   69
+*---------------------------------------------------------------------*   70
+EXIT00   DS    0H                      NORMAL COMPLETION                  71
+         XR    R15,R15                                                    72
+         B     EXIT                                                       73
+EXIT08   DS    0H                      ESTAE ROUTINE HAS RtopVERED        74
+         LAE   R15,8                                                      75
+         B     EXIT                                                       76
+EXIT0C   DS    0H                      LOAD FAILED FOR ESTAEX ROUTINE     77
+         LAE   R15,X'0C'                                                  78
+         B     EXIT                                                       79
+SUP      DC    X'00'
+*---------------------------------------------------------------------*   80
+*        COMMON EXIT                                                  *   81
+*---------------------------------------------------------------------*   82
+EXIT     DS    0H                                                         83
+         LR    R2,R15                  PRESERVE RETURN CODE               84
+         ESTAEX 0                      CANCEL THE MOST RECENT ESTAE       85
+         LR    R15,R2                  RESTORE  RETURN CODE               86
+*        WAIT  ECB=ECB
+         SAM31
+         ENDMOD                        RESTORE REGISTERS AND RETURN       87
+IRBERR   DS    0H
+         MODESET KEY=ZERO,MODE=SUP
+         LOAD  EP=IRBPTR
+         LR    R5,R0
+         LOAD  EP=IRBPTR
+*        DC    H'0'
+*        O     R5,=X'80000000'
+         ST    R5,IRBADD
+*        LA    R5,IRBADD
+*
+         USING PSA,0
+         L     R4,PSATOLD
+         USING TCB,R4
+*        L     R4,ASCBASXB-ASCB(R4)
+*        L     R4,TCBJSTCB-TCB(R4)
+*        L     R4,ASXBFTCB-ASXB(R4)
+*        L     R6,PSATOLD
+*        MVC   160(4,R4),160(R6)
+*
+*
+*
+         SETLOCK OBTAIN,TYPE=LOCAL,MODE=UNCOND,REGS=STDSAVE
+*
+         CIRB EP=(R5),                                                 X
+               RETIQE=YES,                                             X
+               STAB=DYN,                                               X
+               MODE=SUPR,                                              X
+               KEY=SUPR,                                               X
+               WKAREA=255,                                             X
+               BRANCH=YES,                                             X
+               AMODE=DEFINED
+*
+         USING RBBASIC,R1
+         L     R5,RBNEXAV                Get IQE Pointer
+         USING IQESECT,R5
+         ST    R5,IQEADD
+         ST    R1,IQEIRB
+         LA    R15,PLIST
+         ST    R15,IQEPARAM
+         ST    R4,IQETCB
+*
+*
+*
+         SCHEDIRB IQEPTR=IQEADD,                                       X
+               MF=(E,IRBLST)
+*
+         SETLOCK RELEASE,TYPE=LOCAL,REGS=STDSAVE
+         WAIT ECB=WAIT
+*        STIMER WAIT,DINTVL=FIVEMIN1
+*        LA      R9,DBGRP
+*        DBGRDIE LINKAGE=SVC,LEN=30
+         B       EXIT
+*---------------------------------------------------------------------*   88
+*        WORK AREA                                                    *   89
+*---------------------------------------------------------------------*   90
+MYSAVE   DS    18F
+*IMEPARM DC   A(JOE)
+         COPY DBGRLIT
+IRBRET   DC    CL8'IRBRET'
+ADDR     DS    F
+JOE      DC    CL8'JOE'
+INST     DC    X'00000000000000FF'
+NAME     DS    CL8
+QNAM1    DC    CL8'QNAME1'
+RNAM1    DC    CL10'RNAME1'
+RLEN1    DC    AL1(L'RNAM1)
+RNAM2    DC    CL12'RNAME2'
+RNAM3    DC    CL14'RNAME3'
+         SCHEDIRB MF=(L,IRBLST)
+PLIST    DS    0A
+         DS    A
+TIMER_PLIST DS  A
+DESPTR   DS    A
+IRBADD   DS    A
+IQEADD   DS    A
+         ISGYENQ ISGYENQAA=YES,ISGYENQRES=YES,ISGYENQTOKEN=YES,ISGYENQRX
+               ETURN=YES
+*        ISGYENQAA
+*        ISGYENQRES
+*        ISGYENQTOKEN
+*        ISGYENQRETURN
+         DBGRPY
+         CVT DSECT=YES CVT
+*
+         IEFJESCT JESCT
+*
+         IEFJSCVT SSCVT
+*
+         IEFJSRC SSI return and reason codes
+*
+         IEFJSIPL Initialization routine +
+*
+         IGWDES
+*
+         IHASDWA
+*
+         IHAASVT
+*
+*        TESTACB
+*
+*        TESTUVCT
+*
+*        TRAPUSR
+*
+*        TRAPWAIT
+*
+*        RECVPARM
+*
+          DBGRMDST
+*
+          IHAPDS
+*
+          IGWSMDE
+*
+          IHAPSA
+*
+          IKJTCB
+*
+          IKJRB LIST=YES
+*
+          IHAIQE
+*
+          IHAASXB
+*
+          IHAASCB
+*
+          IHAFRRS
+*
+WCESTAE  DSECT                                                            91
+         DS   18F
+WAIT     DS   F
+RETADD   DS   A
+ESTAELST ESTAEX ,MF=L                  ESTAEX PARAMETER LIST              92
+         ISGENQ PLISTVER=MAX,MF=(L,ISGLST,0D)
+SYNCHL   SYNCHX ,RESTORE=YES,AMODE=DEFINED,MF=L
+ESTPARAM DS    0F,CL(LESTPARM)         PARMLIST FOR ESTAEX ROUTINE        93
+ENQT1    DS    CL(ISGYENQTOKEN_LEN)
+ETTBL    DS    CL(3*ISGYENQTOKEN_LEN)
+RTTBL    DS    CL(3*ISGYENQRETURN_LEN)
+DBGRP    DS    XL(DIE_LEN)
+STIMD    DS    XL4
+ECB      DS    F
+TIMEPARM DS    XL4
+STIMERL  STIMERM SET,MF=L
+LCESTAE  EQU   *-WCESTAE                                                  94
+*---------------------------------------------------------------------*   95
+*        OTHER DSECTS                                                 *   96
+*---------------------------------------------------------------------*   97
+         ESTPARM                       MAP PARMLIST FOR EXTAEX ROUTINE    98
+         END                                                              99

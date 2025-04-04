@@ -1,0 +1,171 @@
+*PROCESS SUPRWARN(303)
+*+--------------------------------------------------------------------+    1
+*¦       (C)                                                          ¦    2
+*+--------------------------------------------------------------------+    3
+*¦ FUNCTION:                                                          ¦    4
+*¦   ILLUSTRATE HOW TO ESTABLISH AN ESTAEX RECOVERY ROUTINE           ¦    5
+*¦ INPUTS:                                                            ¦    6
+*¦   NONE                                                             ¦    7
+*¦ OUTPUTS:                                                           ¦    8
+*¦   R15 - RETURN CODE                                                ¦    9
+*¦          0 - PROGRAM HAS COMPLETED NORMALLY                        ¦   10
+*¦          8 - ESTAEX ROUTINE HAS BEEN ENTERED AND RECOVERED         ¦   11
+*¦         12 - LOAD FAILED FOR ESTAEX ROUTINE                        ¦   12
+*¦ PROGRAM LOGIC:                                                     ¦   13
+*¦   1) BUILD THE PARMLIST FOR THE CARR PUT IN MODFIABLE AREA         ¦   15
+*¦   3) IF THE MODULE EXECUTES IN SUPERVISOR STATE, PUT THE MODULE    ¦   16
+*¦      NAME AND ENTRY POINT IN THE PARMLIST.  (IN SUPERVISOR STATE,  ¦   17
+*¦      RTM2 DOES NOT SUPPLY THEM IN THE SDWA.                        ¦   18
+*¦   4) ISSUE THE ESTAEX MACRO TO ESTABLISH THE RECOVERY ROUTINE.     ¦   19
+*¦   5) EXECUTE REMAINING INSTRUCTIONS; AN ERROR WILL CAUSE THE       ¦   20
+*¦      ESTAEX ROUTINE TO RECOVER TO THE RECOVERY ADDRESS             ¦   21
+*¦ ATTRIBUTES:                                                        ¦   22
+*¦   REENTRANT, AMODE 31, RMODE ANY                                   ¦   23
+*+--------------------------------------------------------------------+   24
+         MODULE CARR,BASE=12,LOC=BELOW,AMODE=31,RMODE=ANY,         JOERX  25
+               TEXT=' ESTABLISH AN ECARR ROUTINE'                  JOER   26
+         LA    R2,PCRTN
+         LOAD  EP=GRECOV,ERRET=EXIT14  LOAD RECOVERY ROUTINE             105
+EXIT14   DS    0H
+         LR    R9,R0                   ADDRESS OF MODULE => R9           106
+*
+         MVI   USER_TOKEN,X'40'
+         MVC   USER_TOKEN+1(L'USER_TOKEN-1),USER_TOKEN
+*
+         SYSSTATE RMODE64=YES
+         MODESET MODE=SUP,KEY=ZERO
+         LTR   R15,R15
+         BZ    DOAXRES
+         WTO   'ERROR MODESET'
+DOAXRES  DS    0H
+*
+         MVC   AXLIST(2),=H'1'
+*
+         AXRES AXLIST=AXLIST
+         LTR   R15,R15
+         BZ    DOAXSET
+         WTO   'ERROR AXRES'
+*
+DOAXSET  DS    0H
+         MVC   AXVALUE,AXLIST+2
+         AXSET AX=AXLIST+2
+         LTR   R15,R15
+         BZ    DOLXRES
+         WTO   'ERROR AXSET'
+DOLXRES  DS    0H
+*
+         MVC   ELXLIST(4),=F'1'
+*
+         LXRES ELXLIST=ELXLIST,REUSABLE=YES,SYSTEM=NO
+         LTR   R15,R15
+         BZ    SETRES
+         WTO   'ERROR LXRES'
+SETRES   DS    0H
+         MVC   LXVALUE,ELXLIST+4
+*
+         LA    R7,1                    ..
+*        *---------------------------------------*                       115
+*        *     MODIFY THE ENTRY TABLE ENTRY      *                       116
+*        *---------------------------------------*                       117
+         ETDEF TYPE=SET,ETEADR=ETD1,   MODIFY ETE IN WORK AREA         X 118
+               ROUTINE=(2),            ADDRESS OF THE PC ROUTINE       X 119
+               PARM1=(7),              ADDRESS OF 1ST LATENT PARAMETER X 120
+               PC=STACKING,            STACKING PC ROUTINE             X 121
+               SSWITCH=YES,            BRANCH TO ANOTHER ADDRESS SPACE X 122
+               ASCMODE=PRIMARY,        RECEIVE CONTROL IN PRIMARY MODE X 123
+               SASN=NEW,               HOME == SASN                JOERX 124
+               AKM=(0:15),             CALLER CAN BE IN ANY PSW KEY    X 125
+               RAMODE=31,              ENTER IN 31 BIT MODE            X 126
+               STATE=SUPERVISOR,EK=8,  ENTERED IN PROB STATE/TCB KEY   X 127
+               EKM=(0:15),PKM=OR       AT ENTRY SET NEW PKM 0:15         128
+*              ARR=(9)                 ARR                               127
+*                                      ..
+         ETCRE ENTRIES=ETDESC
+*
+         ST    R0,TOKEN
+*
+         L     R15,CVTPTR
+         L     R15,X'220'(R15,0)
+         L     R15,X'14'(R15,0)
+         L     R15,X'4'(R15,0)
+         LA    R1,LEVEL
+         ST    R1,PARMS
+         LA    R1,NAME
+         ST    R1,PARMS+4
+         LA    R1,USER_TOKEN
+         ST    R1,PARMS+8
+         LA    R1,SYSP
+         ST    R1,PARMS+12
+         LA    R1,RETCODE
+         ST    R1,PARMS+16
+         LA    R1,PARMS
+         BASR  R14,R15
+*
+         MODESET MODE=PROB,KEY=NZERO
+*
+         ENDMOD
+*
+PCRTN    DS   0H
+*        *---------------------------------------*                 JOER   32
+*        *     BUILD PARMLIST FOR ARR ROUTINE    *                 JOER   33
+*        *---------------------------------------*                 JOER   34
+         PUSH  USING
+         BASR  R11,0
+         USING *,R11
+         LAE   R4,ESTPARAM           ADDRESS OF PARMS FOR ARR      JOER   35
+         USING ESTPARM,R4            MAP ESTAE PARMLIST                   36
+         LAE   R15,RETRY             RETRY ADDRESS                        37
+         ST    R15,ESTRETRY          SAVE IN PARMS FOR ESTAE ROUTINE      38
+         ST    R12,ESTLOAD             ENTRY POINT TO ESTAE PARMLIST      44
+         MVC   ESTMOD(8),=CL8'CLIENT'  MODULE NAME TO ESTAE PARMLIST      45
+         XR    R5,R5
+*
+*        PUT PARM ON MODFIABLE AREA
+*
+         MSTA  R4
+         LAM   R1,R1,=A(X'00000001')        ..LOAD ACCESS REGS TO SHOW    57
+         LAM   R2,R2,=A(X'00000002')        ..HOW ESTAEX RTN DISPLAYS     58
+         L     R1,=X'0000123E'              INVALID ADDRESS
+SVCER    DS    0H                       PROGRAM CHECK S0C1                59
+         DC    H'0'
+         SAM64
+         LLILF 15,X'7FFFF000'
+         SVC 42
+RETURN   DS    0H
+         PR
+RETRY    DS    0H                                                         64
+*        WTO   'AT RECOVERY POINT IN CALLER'                              65
+         B     RETURN
+         LTORG
+         POP   USING
+ESTPARAM DS    0F,CL(LESTPARM)         PARMLIST FOR ESTAEX ROUTINE        93
+*
+*     PC RTN DEFINATION
+*
+CVTADDR  DC    A(CVTPTR)
+NAME     DC    CL16'FILE 192'
+LEVEL    DC    A(IEANT_SYSTEM_LEVEL)
+SYSP     DC    A(1)
+*
+ETDESC   ETDEF TYPE=INITIAL                                        JOER
+ETD1     ETDEF TYPE=ENTRY,PROGRAM=*-*,AKM=(0:15),ARR=*-*,          JOERX
+               EK=0,PC=STACKING,SSWITCH=YES,STATE=SUPERVISOR       JOER
+         ETDEF TYPE=FINAL
+         IEANTASM
+         CVT   LIST=YES,DSECT=YES
+         ESTPARM
+WCARR    DSECT
+         DS    18F
+AXLIST   DS    F
+ELXLIST  DS    0F
+         DS    F
+         DS    D
+PARMS    DS    5F
+USER_TOKEN DS  0XL16
+AXVALUE   DS   XL2
+LXVALUE   DS   XL8
+TOKEN    DS    XL4
+         DS    XL2
+RETCODE  DS    F
+LCARR    EQU   *-WCARR
+         END

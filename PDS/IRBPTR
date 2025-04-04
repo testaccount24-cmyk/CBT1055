@@ -1,0 +1,29 @@
+IRBPTR   CSECT
+IRBPTR   AMODE 31
+IRBPTR   RMODE ANY
+         YREGS
+         ENTRY IRBRET
+*
+*        STM   R14,R12,12(R13)
+         LLGTR R5,R15
+         USING IRBPTR,R5
+         LR    R11,R14
+         DC    H'0'
+IRBRET   DS    0H
+         USING   DBGRPY,R9
+*        LA      R9,DBGRP
+*        DBGRDIE LINKAGE=SVC,LEN=7B4
+         LR    R10,R1                        Save Plist pointer
+*        DC    H'0'
+*        ESTAE RECOVERY
+*        LOAD  EP=GETVECT
+*        ST    R0,0(R10)                     Store Pointer
+         XR    R15,R15
+         LR    R14,R11
+         BR    R14
+         COPY DBGRLIT
+DBGRP    DS    XL(DIE_LEN)
+         DBGRPY
+         IHAPSA
+         IKJRB
+         END

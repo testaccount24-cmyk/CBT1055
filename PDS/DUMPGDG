@@ -1,0 +1,451 @@
+***********************************************************************
+*                                                                     *
+*   MODULE NAME:  DUMPGDG                                             *
+*                                                                     *
+*   TSTAules Programming interface                                    *
+*                                                                     *
+* Copyright:    Sam Golob Systems Programming                         *
+*                                                                     *
+*               "Restricted Materials of Sam Golob"                   *
+*                                                                     *
+*     All Paramters Terminated by Spaces                              *
+*                                                                     *
+*     R1 --> Points to 4 FULL WORDS                                   *
+*     +0     0 or list wto messages                                   *
+*     +4     Points to 2 BYTE LENGTH Followed by header               *
+*     +8     A(START)                                                 *
+*     +12    A(END)                                                   *
+*     +16    DATA SPACE PARMS                                         *
+*            AT LEST ONE OF GROUP OF 3                                *
+*            START ADDRESS,END ADDRESS, STOKEN
+*   LANGUAGE:  ASSEMBLER                                              *
+*                                                                     *
+*   ATTRIBUTES: REUSEABLE                                             *
+*               REENTRANT                                             *
+*                                                                     *
+*               To accomplish reentrancy:                             *
+*               1) Ensure all macros use execution lists              *
+*               2) Move all execution lists to dynamic storage        *
+*               3) Perform LOCATE mode IO or move records to          *
+*                  dynamic storage                                    *
+*               4) Move local save area to dynamic storage along      *
+*                  with any other miscellaneous fields that must      *
+*                  be altered (IRECN and NERRS for example).          *
+*                                                                     *
+*   REGISTER USAGE:                                                   *
+*        REG1 =                                                       *
+*        REG2 =                                                       *
+*        REG3 =                                                       *
+*        REG4 = BASE REG 1                                            *
+*        REG5 =                                                       *
+*        REG6 = Input parameters                                      *
+*        REG7 =                                                       *
+*        REG8 =                                                       *
+*        REG9 =                                                       *
+*        REG10 =                                                      *
+*        REG11 =                                                      *
+*        REG12 =                                                      *
+*        REG13 = SAVE AREA                                            *
+*        REG14 =                                                      *
+*        REG15 =                                                      *
+*                                                                     *
+*                                                                     *
+***********************************************************************
+DUMPGDG CSECT
+DUMPGDG AMODE 31
+DUMPGDG RMODE 24
+         PRINT GEN
+         YREGS
+*---------------------------------------------------------------------*
+* START OF EXECUTABLE CODE                                            *
+*---------------------------------------------------------------------*
+         BAKR  R14,0                      Save on stack
+         LR    R3,R15                     R4 base
+         USING DUMPGDG,R3                 Base Register
+         USING WS_DSECT,R13               Working Storage
+         USING SNPPARMS,SNAPLIST
+         LR    R6,R1                      Hold Paramter
+         LA    R5,DRDMPDD
+         USING IHADCB,R5
+         TM    DCBOFLGS,DCBOFOPN
+         BZ    INITSTOR
+**********************************************************************
+* TASK LEVEL RETRIEVE EXAMPLE                                        *
+**********************************************************************
+         L    R13,0(R6)                       Get r13
+         B    GOTOPARM
+**********************************************************************
+INITSTOR DS    0H
+**********************************************************************
+        LA    R0,WS_LEN
+*
+        STORAGE OBTAIN,LENGTH=(R0),ADDR=(R7),SP=0
+        LR    R13,R7                  Save
+        ST    R13,0(R6)
+         ST    R6,PARMADDR                Save paramter address
+*
+*   Get Stroage For Dynamic allocation
+*
+
+         LA    R0,4+RBLEN+68+S99RBXLN
+*
+         STORAGE OBTAIN,LENGTH=(0),ADDR=(R11),SP=0
+*
+         ST    R11,DYNPTR
+         LR    R1,R0
+         LR    R0,R11
+         XR    R14,R14
+         XR    R15,R15
+         MVCL  R0,R14
+         USING S99RBP,R11
+         LA    R2,4(,R11)
+         USING S99RB,R2
+         ST    R2,S99RBPTR
+         OI    S99RBPTR,S99RBPND
+         MVI   S99RBLN,RBLEN
+         MVI   S99VERB,S99VRBAL
+         OI    S99FLG11,S99GDGNT
+         LA    R4,RBLEN(,R2)
+         ST    R4,S99TXTPP
+         LA    R6,68(,R4)
+         ST    R6,S99S99X
+         USING S99RBX,R6
+         OI    S99EVER,S99RBXVR
+         MVC   S99EID,=C'S99RBX'
+         USING S99TUPL,R4
+         LA    R5,DDNAME
+         USING S99TUNIT,R5
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALDDNAM)        DDname
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0008'
+         MVC   S99TUPAR(8),=C'DUMPGDG '
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,DSNAME
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALDSNAM)        Dsname
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=AL2(L'TSTABASE)
+         MVC   S99TUPAR(L'TSTABASE),TSTABASE
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,MEMNAME
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALMEMBR)        Member
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0002'
+         MVC   S99TUPAR(2),=C'+1'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,STATUS
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALSTATS)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0001'
+         MVI   S99TUPAR,X'04'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,STNORM
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALNDISP)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0001'
+         MVI   S99TUPAR,X'02'             Catlg
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,STCOND
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALCDISP)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0001'
+         MVI   S99TUPAR,X'04'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,UNUSED                    Rlse
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALRLSE)
+         MVC   S99TUNUM,=X'0000'
+*
+         LA    R4,4(,R4)   NEXT text unit  no sms
+         LA    R5,SCNOSMS
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALMGCL)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0007'
+         MVC   S99TUPAR(7),=C'SCNOSMS'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,TRK                       trk
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALCYL)
+         MVC   S99TUNUM(2),=X'0000'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,PRIMARY                     Primary
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALPRIME)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0003'
+         MVC   S99TUPAR(3),=XL3'000003'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,SECOND                      Secondary
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALSECND)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0003'
+         MVC   S99TUPAR(3),=XL3'000005'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,VOLSER                     Volser
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALVLSER)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0006'
+         MVC   S99TUPAR(6),=C'WORKA3'
+*
+         LA    R4,4(,R4)   NEXT text unit     Close Unallocate
+         LA    R5,UNACL
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALCLOSE)
+         MVC   S99TUNUM,=X'0000'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,BLKSIZE                    Blksize
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALBLKSZ)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0002'
+         MVC   S99TUPAR(2),=X'0372'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,DSORG                        Dsorg
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALDSORG)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0002'
+         MVC   S99TUPAR(2),=X'4000'
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,LRECL
+         ST    R5,S99TUPTR
+         MVC   S99TUKEY,=AL2(DALLRECL)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0002'
+         MVC   S99TUPAR(2),=X'007C'          Lrecl
+*
+         LA    R4,4(,R4)   NEXT text unit
+         LA    R5,RECFM                     recfm
+         ST    R5,S99TUPTR
+         OI    S99TUPTR,S99TUPLN
+         MVC   S99TUKEY,=AL2(DALRECFM)
+         MVC   S99TUNUM,=X'0001'
+         MVC   S99TULNG,=X'0001'
+         MVI   S99TUPAR,X'54'            Catlg
+*
+         LR    R1,R11
+         DYNALLOC
+*
+         LA    R5,DRDMPDD
+         USING IHADCB,R5
+         MVC   EXITL(1),=AL1(EXLLASTE+EXLRJFCB)
+         LA    R6,JFCBAREA
+         STCM  R6,B'0111',EXITL+1
+         LA    R7,EXITL
+         ST    R7,DCBEXLST
+*
+         RDJFCB DRDMPDD   Get Latest GDG
+*
+         USING INFMJFCB,R6
+         MVC   MESS,=C' The Data Will be Dumped to '
+         MVC   DUMPDATA,JFCBDSNM
+         LA    R7,WTOLEN
+         STCM  R7,B'0011',WTOMESS
+         MVC   WTOMESS+2(2),=X'0000'
+         LA    R1,WTOMESS
+         SVC   35
+*
+         XC    SNAPLIST(SNAPLEN),SNAPLIST
+         OPEN  (DRDMPDD,(OUTPUT))
+         MVC   DECB(IWRITELEN),IWRITE
+GOTOPARM DS    0H
+         L     R7,PARMADDR               Get paramter list
+         L     R9,4(,R7)
+         LTR   R9,R9
+         BZ    DOSNAP
+*        LA    R9,TESTMESS
+         MVI   BDW+8,X'40'
+         MVC   BDW+9(124),BDW
+         LA    R4,BDW                     CLEAR OUT AREA
+*        LA    R5,133
+         ST    R9,WTOPTR
+*        XR    R14,R14
+*        XR    R15,R15
+*        MVCL  R4,R14
+         MVC   BDW(2),0(R9)
+         XR    R4,R4
+         ICM   R4,B'0011',BDW
+         AH    R4,=H'6'
+         STH   R4,BDW
+         XR    R4,R4
+         MVC   RDW(2),0(R9)
+         ICM   R4,B'0011',RDW
+         AH    R4,=H'2'
+         STH   R4,RDW
+         IC    R4,1(R9)
+         BCTR  R4,0
+         LA    R5,BDW+8
+         LA    R9,1(,R9)
+         EX    R4,MVEBUFF
+         LA    R9,BDW
+         WRITE DECB,SF,DRDMPDD,(R9),'S',MF=E
+         CHECK DECB
+         B     RETRUN
+DOSNAP   DS    0H
+         L     R1,PARMADDR
+         L     R2,8(,R1)     GET LIST POINTER
+         L     R4,12(,R1)     GET HEADER ADDRESS
+         LA    R12,SNAPLIST
+         ST    R2,SNPSTOR                           Store parms
+         ST    R4,SNPHDRA
+         OI    SNPFLAG,SNPVS2+SNPVS2EN+SNPABEND+SNPSLIST+SNPHDR
+         OI    SNPFLAG1,SNPVS3+SNPLVL2+SNPLVL3
+SDUMPIT  DS    0H
+*
+         LA    R1,SNAPLIST
+         MVI   SNPVRSN,1
+         LA    R15,DRDMPDD
+         ST    R15,SNPDCB
+         SVC   51
+*
+*        SNAPX DCB=DRDMPDD,                                         X
+*              PDATA=REGS,                                          X
+*              STRHDR=HEADER,                                       X
+*              DSPSTOR=DSPLIST,                                     X
+*              LIST=LISTADD,MF=(E,SNAPLIST)
+*
+CLOSE    DS    0H
+         CLOSE DRDMPDD
+*
+         MODESET MODE=PROB
+*
+         LA    R0,4+RBLEN+68+S99RBXLN
+*
+         L     R11,DYNPTR
+*
+         STORAGE RELEASE,LENGTH=(0),ADDR=(R11),SP=0
+         LR    R7,R13
+*        L     R13,4(,R13)
+         LA    R0,WS_LEN
+*
+         STORAGE RELEASE,LENGTH=(R0),ADDR=(R7),SP=0
+*
+*        LM    R14,R12,12(R13)
+RETRUN   DS    0H
+         PR
+         IEANTASM
+         EJECT
+***********************************************************************
+* Constants and data areas *
+***********************************************************************
+LEVEL DC A(IEANT_TASK_LEVEL) Task level
+PERSOPT DC A(IEANT_NOPERSIST) Persist option
+************************************************************
+TESTMESS DC    X'000D00000009000040F1F2F3F4'
+MVEBUFF  MVC   0(0,R5),0(R9)
+MVEWRK   MVC   5(0,R9),2(R6)
+MOVEHEAD MVC   1(0,R4),0(R11)
+TSTABASE DC    C'JOER.TESTA.DUMP'
+*
+*WRITE   WRITE D,SF,DRDMPDD,*-*,'S',MF=L
+IWRITE   WRITE D,SF,DRDMPDD,*-*,'S',MF=L
+IWRITELEN EQU  *-IWRITE
+DRDMPDD  DCB   DDNAME=DUMPGDG,DSORG=PS,RECFM=VBA,MACRF=(W),BLKSIZE=1632X
+               ,LRECL=125,EXLST=*-*
+EXISTS   DC   AL1(EXLLASTE+EXLRJFCB)
+         DS   AL3(*-*)
+WS_DSECT DSECT
+         DS   18F
+         IHADECB DSECT=NO
+PARMADDR DS   F
+DYNPTR   DS   F
+WTOPTR   DS   A
+         DS   0F
+NAME     DS   CL16 Name for name/token pair
+TOKEN    DS   XL16 Token for name/token pair
+RETCODE  DS   F
+DSPLIST  DS   100CL16
+STRTDSP  DS   A
+ENDDDSP  DS   A
+DSSTOKEN DS   CL8
+*
+BUFFAREA DS   0CL133
+BDW      DS   XL4
+RDW      DS   XL4
+         DS   XL125
+*
+LISTADD  DS   40F
+HEAD     DS   CL500
+HEADER   DS   20F
+DDNAME   DS   CL(TULEN+8)               Text nunit for ddname
+*
+DSNAME   DS   CL(TULEN+44)
+*
+MEMNAME  DS   CL(TULEN+2)
+*
+STATUS   DS   CL(TULEN+1)
+*
+STNORM   DS   CL(TULEN+1)
+*
+STCOND   DS   CL(TULEN+1)
+*
+TRK      DS   CL(TULEN+1)
+*
+PRIMARY  DS   CL(TULEN+3)
+*
+SECOND   DS   CL(TULEN+3)
+*
+UNUSED   DS   CL(TULEN+3)
+*
+VOLSER   DS   CL(TULEN+6)
+*
+UNACL    DS   CL(TULEN+1)
+*
+BLKSIZE  DS   CL(TULEN+2)
+*
+DSORG    DS   CL(TULEN+2)
+*
+LRECL    DS   CL(TULEN+2)
+*
+RECFM    DS   CL(TULEN+1)
+*
+SCNOSMS  DS   CL(TULEN+7)
+*
+SNAPLIST SNAPX DCB=*-*,PDATA=REGS,STRHDR=*-*,LIST=*-*,DSPSTOR=*-*,MF=L
+*
+SNAPLEN  EQU  *-SNAPLIST
+*
+EXITL    DS   A
+WTOMESS  DS   AL2
+         DS   XL2
+MESS     DS   C' The Data will be dumped to '
+DUMPDATA DS   CL44
+WTOLEN   EQU  *-MESS
+JFCBAREA DS   0F,176C
+WS_LEN   EQU  *-WS_DSECT
+DSPDSECT DSECT
+STARTD   DS   A
+ENDD     DS   A
+STOKD    DS   CL8
+DSPLEN   EQU  *-DSPDSECT
+         DCBD DSORG=PS,DEVD=DA
+         IEFZB4D0
+         IEFZB4D2
+         IHAEXLST
+         IEFJFCBN
+         IHASNAPX
+         IHASDMPX
+RBLEN    EQU  (S99RBEND-S99RB)
+TULEN    EQU  (S99TUPAR-S99TUNIT)
+         END
